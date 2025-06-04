@@ -27,4 +27,4 @@ df = df[df['total_shifts'] >= 20]
 # Удаляем ненужную колонку
 df = df.drop(columns=['iqr_up_ratio'])
 
-print(df.head(15).sort_values('pct_timer_up_expired', ascending=False), '\n')
+print('Датафрейм из файла данных, индексы - id_driver','\n',df.head(15).sort_values('pct_timer_up_expired', ascending=False), '\n')

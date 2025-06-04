@@ -1,9 +1,9 @@
 import matplotlib
+import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
 from data import df
-from sklearn.preprocessing import MinMaxScaler
-import matplotlib.pyplot as plt
 
 matplotlib.use('TkAgg')
 pd.set_option('display.width', None)  # Автоматически подбирает ширину под консоль
@@ -57,49 +57,118 @@ cols = ['courier_score'] + [col for col in df.columns if col != 'courier_score']
 df = df[cols]
 
 # Сортируем и выводим
-print(df.sort_values('courier_score', ascending=False))
+print('Датафрейм с посчитанным КПД - courier_score','\n',df.sort_values('courier_score', ascending=False), '\n')
+
+# Записываем датафрейм в новый csv
+df.to_csv('courier_score.csv')
 
 
-if __name__ == "__main__":
+df = pd.read_csv('courier_score.csv')
+# Топ N самых эффективных курьеров
+top_n = 10
+top_couriers = df['courier_score'].sort_values(ascending=False).head(top_n)
+
+plt.figure(figsize=(10, 6))
+top_couriers.plot(kind='bar', color='skyblue')
+plt.title('Топ 10 курьеров по КПД')
+plt.xlabel('ID курьера')
+plt.ylabel('КПД (courier_score)')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Распределение КПД
+plt.figure(figsize=(8, 5))
+plt.hist(df['courier_score'], bins=30, color='teal', edgecolor='black')
+plt.title('Распределение КПД курьеров')
+plt.xlabel('courier_score')
+plt.ylabel('Частота')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Зависимость между заказами в смену и КПД
+plt.figure(figsize=(8, 6))
+plt.scatter(
+    df['avg_orders_per_shift'],
+    df['courier_score'],
+    alpha=0.6,
+    c='green'
+)
+plt.title('Зависимость КПД от среднего числа заказов в смену')
+plt.xlabel('Среднее число заказов в смену')
+plt.ylabel('courier_score')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
 
-    # Топ N самых эффективных курьеров
-    top_n = 10
-    top_couriers = df['courier_score'].sort_values(ascending=False).head(top_n)
+# ГРУППИРОВКА ПО КАТЕГОРИИ ОПЫТА
 
-    plt.figure(figsize=(10, 6))
-    top_couriers.plot(kind='bar', color='skyblue')
-    plt.title('Топ 10 курьеров по КПД')
-    plt.xlabel('ID курьера')
-    plt.ylabel('КПД (courier_score)')
-    plt.xticks(rotation=45)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+# Убедимся что индекс не мешает
+df_reset = df.reset_index()
 
-    # Распределение КПД
-    plt.figure(figsize=(8, 5))
-    plt.hist(df['courier_score'], bins=30, color='teal', edgecolor='black')
-    plt.title('Распределение КПД курьеров')
-    plt.xlabel('courier_score')
-    plt.ylabel('Частота')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+# Группируем по experience_category и считаем средний courier_score
+grouped_by_exp = df_reset.groupby('experience_category', observed=True).agg(
+    avg_courier_score=('courier_score', 'mean'),
+    courier_count=('id_driver', 'count')
+).sort_values(by='avg_courier_score', ascending=False).round(2)
+print('Зависимость КПД от опыта', '\n',grouped_by_exp, '\n')
 
-    # Зависимость между заказами в смену и КПД
-    plt.figure(figsize=(8, 6))
-    plt.scatter(
-        df['avg_orders_per_shift'],
-        df['courier_score'],
-        alpha=0.6,
-        c='green'
-    )
-    plt.title('Зависимость КПД от среднего числа заказов в смену')
-    plt.xlabel('Среднее число заказов в смену')
-    plt.ylabel('courier_score')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+# Визуализация зависимости КПД от категории опыта
+plt.figure(figsize=(8, 6))
+plt.plot(grouped_by_exp.index, grouped_by_exp['avg_courier_score'], marker='o', color='darkcyan')
+plt.title('Зависимость КПД от категории опыта')
+plt.xlabel('Категория опыта')
+plt.ylabel('avg_courier_score')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
+# вычислить датафрейм и нарисовать гистограмму зависимость КПД от количества смен
+# Восстанавливаем id_driver как столбец для работы
+df_reset = df.reset_index()
 
+# Создаём бины и метки для категоризации
+bins = [20, 49, 99, 199, float('inf')]
+labels = ['20-49', '50-99', '100-199', '200+']
+
+# Добавляем категорию "Количество смен"
+df_reset['shifts_category'] = pd.cut(df_reset['total_shifts'], bins=bins, labels=labels)
+
+# Группируем по количеству смен и считаем средний courier_score и количество курьеров
+grouped_by_shifts = df_reset.groupby('shifts_category', observed=True).agg(
+    avg_courier_score=('courier_score', 'mean'),
+    courier_count=('id_driver', 'count')
+).round(2)
+print('Зависимость КПД от количества смен','\n',grouped_by_shifts, '\n')
+
+# Построение графика зависимости КПД от количества смен. Гистограмма с двумя осями (КПД + количество курьеров)
+fig, ax1 = plt.subplots(figsize=(10, 6))
+
+# Столбчатая диаграмма — количество курьеров
+ax1.bar(grouped_by_shifts.index.astype(str), grouped_by_shifts['courier_count'],
+        color='skyblue', label='Число курьеров', alpha=0.7)
+
+# Линия — средний КПД
+ax2 = ax1.twinx()
+ax2.plot(grouped_by_shifts.index.astype(str), grouped_by_shifts['avg_courier_score'],
+         color='darkorange', marker='o', linestyle='-', linewidth=2, label='Средний КПД')
+
+# Настройки графика
+ax1.set_title('Зависимость КПД от количества смен', fontsize=14)
+ax1.set_xlabel('Количество смен (интервалы)', fontsize=12)
+ax1.set_ylabel('Число курьеров', fontsize=12, color='skyblue')
+ax2.set_ylabel('Средний КПД', fontsize=12, color='darkorange')
+plt.xticks(rotation=45)
+
+# Легенды
+lines, labels = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(lines + lines2, labels + labels2, loc='upper left')
+
+plt.tight_layout()
+plt.grid(True, axis='x', linestyle='--', alpha=0.5)
+plt.show()
