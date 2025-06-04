@@ -1,6 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
+from openpyxl.reader.excel import load_workbook
 from sklearn.preprocessing import MinMaxScaler
 
 from data import df
@@ -60,10 +61,10 @@ df = df[cols]
 print('Датафрейм с посчитанным КПД - courier_score','\n',df.sort_values('courier_score', ascending=False), '\n')
 
 # Записываем датафрейм в новый csv
-df.to_csv('courier_score.csv')
+df.to_csv('results/courier_score.csv')
 
 
-df = pd.read_csv('courier_score.csv')
+df = pd.read_csv('results/courier_score.csv')
 # Топ N самых эффективных курьеров
 top_n = 10
 top_couriers = df['courier_score'].sort_values(ascending=False).head(top_n)
@@ -172,3 +173,113 @@ ax2.legend(lines + lines2, labels + labels2, loc='upper left')
 plt.tight_layout()
 plt.grid(True, axis='x', linestyle='--', alpha=0.5)
 plt.show()
+
+
+# **********************************************************************************************************************
+# Записываем в эксель
+from openpyxl import Workbook, load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.styles import Font
+from openpyxl.drawing.image import Image
+import matplotlib.pyplot as plt
+import os
+
+# Сохраняем все графики во временные файлы
+plt.figure(figsize=(10, 6))
+top_couriers.plot(kind='bar', color='skyblue')
+plt.title('Топ 10 курьеров по КПД')
+plt.xlabel('ID курьера')
+plt.ylabel('КПД (courier_score)')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('top_couriers.png')
+plt.close()
+
+plt.figure(figsize=(8, 5))
+plt.hist(df['courier_score'], bins=30, color='teal', edgecolor='black')
+plt.title('Распределение КПД курьеров')
+plt.xlabel('courier_score')
+plt.ylabel('Частота')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('score_distribution.png')
+plt.close()
+
+plt.figure(figsize=(8, 6))
+plt.scatter(df['avg_orders_per_shift'], df['courier_score'], alpha=0.6, c='green')
+plt.title('Зависимость КПД от заказов в смену')
+plt.xlabel('Среднее число заказов в смену')
+plt.ylabel('courier_score')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('orders_vs_score.png')
+plt.close()
+
+plt.figure(figsize=(8, 6))
+plt.plot(grouped_by_exp.index, grouped_by_exp['avg_courier_score'], marker='o', color='darkcyan')
+plt.title('Зависимость КПД от категории опыта')
+plt.xlabel('Категория опыта')
+plt.ylabel('avg_courier_score')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('experience_vs_score.png')
+plt.close()
+
+# Создаем или загружаем файл Excel
+excel_file = 'results/courier_analysis.xlsx'
+if os.path.exists(excel_file):
+    wb = load_workbook(excel_file)
+    if 'kpd_research' in wb.sheetnames:
+        del wb['kpd_research']
+else:
+    wb = Workbook()
+    del wb['Sheet']  # Удаляем дефолтный лист
+
+ws = wb.create_sheet("kpd_research")
+
+# 1. Основные данные
+ws['A1'] = "Основные данные по КПД курьеров"
+ws['A1'].font = Font(bold=True, size=12)
+for r in dataframe_to_rows(df, index=False, header=True):
+    ws.append(r)
+
+# 2. Группировка по опыту
+ws.append([])
+ws.append(["Группировка по категории опыта"])
+for r in dataframe_to_rows(grouped_by_exp, index=True, header=True):
+    ws.append(r)
+
+# 3. Группировка по сменам
+for _ in range(3):
+    ws.append([])
+ws.append(["Группировка по количеству смен"])
+for r in dataframe_to_rows(grouped_by_shifts, index=True, header=True):
+    ws.append(r)
+
+# Вставляем графики
+img_top = Image('top_couriers.png')
+ws.add_image(img_top, 'O2')
+
+img_dist = Image('score_distribution.png')
+ws.add_image(img_dist, 'O40')
+
+img_orders = Image('orders_vs_score.png')
+ws.add_image(img_orders, 'O80')
+
+img_exp = Image('experience_vs_score.png')
+ws.add_image(img_exp, 'O120')
+
+# Автонастройка ширины столбцов
+for column in ws.columns:
+    max_length = max(len(str(cell.value)) for cell in column if cell.value)
+    ws.column_dimensions[column[0].column_letter].width = max_length + 2
+
+# Сохраняем и удаляем временные файлы
+wb.save(excel_file)
+for img_file in ['top_couriers.png', 'score_distribution.png',
+                 'orders_vs_score.png', 'experience_vs_score.png']:
+    os.remove(img_file)
+
+print(f"Все данные и графики сохранены на лист 'kpd_research' в файле {excel_file}")

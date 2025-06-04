@@ -4,4 +4,4 @@
 # ожидания курьером выдачи товара, собственно доставку и опоздания (если курьер не уложился в сроки).
 import pandas as pd
 
-df = pd.read_csv('courier_score.csv')
+df = pd.read_csv('results/courier_score.csv')

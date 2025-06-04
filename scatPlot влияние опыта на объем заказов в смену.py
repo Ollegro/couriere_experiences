@@ -2,7 +2,7 @@ import matplotlib
 import pandas as pd
 from matplotlib import pyplot as plt
 matplotlib.use('TkAgg')
-df = pd.read_csv('courier_score.csv')
+df = pd.read_csv('results/courier_score.csv')
 
 
 # СТРОИМ СКАТТЕР ПЛОТ  - СРЕДНЕЕ ЧИСЛО ЗАКАЗОВ В СМЕНУ В ЗАВИС ОТ КАТЕГОРИИ ОПЫТА

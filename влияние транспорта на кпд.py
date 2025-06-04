@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 matplotlib.use('TkAgg')
 
 # Сброс индекса, чтобы включить id_driver в дальнейшую обработку
-df_reset = pd.read_csv('courier_score.csv').reset_index()
+df_reset = pd.read_csv('results/courier_score.csv').reset_index()
 
 
 # Группировка по courier_dtype
