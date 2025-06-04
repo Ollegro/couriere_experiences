@@ -1,7 +1,7 @@
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 pd.set_option('display.width', None)  # Автоматически подбирает ширину под консоль
-df = pd.read_csv('couriers4 08.00.18.csv')
+df = pd.read_csv('row_data/couriers4 08.00.18.csv')
 print(df.shape)# Получаем предварительные данные о ДФ
 print(df.info(),'\n')
 print(df.describe(), '\n')

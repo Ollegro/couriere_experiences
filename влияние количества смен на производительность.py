@@ -5,7 +5,7 @@ matplotlib.use('TkAgg')
 # вычислить датафрейм и нарисовать именно гистограмму в pandas - влияние количества смен на объем исполненных заказов
 # в смену Создание DataFrame с группами
 
-df_reset = pd.read_csv('courier_score.csv').reset_index()
+df_reset = pd.read_csv('results/courier_score.csv').reset_index()
 
 
 # Определим бины для total_shifts

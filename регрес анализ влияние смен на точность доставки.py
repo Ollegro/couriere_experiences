@@ -11,7 +11,7 @@ matplotlib.use('TkAgg')
 
 
 # Выбираем данные
-df_reset = pd.read_csv('courier_score.csv').reset_index()
+df_reset = pd.read_csv('results/courier_score.csv').reset_index()
 
 X = df_reset['total_shifts']  # Предиктор (опыт)
 y = df_reset['median_time_ratio']  # Целевая переменная (эффективность)

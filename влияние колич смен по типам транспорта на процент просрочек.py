@@ -8,7 +8,7 @@ import statsmodels.api as sm
 from statsmodels.tools.tools import add_constant
 
 # Группируем по courier_dtype и строим отдельную модель для каждой группы
-df = pd.read_csv('courier_score.csv')
+df = pd.read_csv('results/courier_score.csv')
 df_reset = df.reset_index()
 courier_types = df_reset['courier_dtype'].unique()
 

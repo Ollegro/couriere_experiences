@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 matplotlib.use('TkAgg')
 
 
-df= pd.read_csv('courier_score.csv').reset_index()
+df= pd.read_csv('results/courier_score.csv').reset_index()
 # ГРУППИРУЕМ ПО ТИПУ ТРАНСПОРТА И СЧИТАЕМ ПОКАЗАТЕЛИ ПО ПОЛЮ SCORE.
 # Уникальные типы транспорта
 transport_types = df['courier_dtype'].unique()
