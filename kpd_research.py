@@ -3,11 +3,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from openpyxl.reader.excel import load_workbook
 from sklearn.preprocessing import MinMaxScaler
-
 from data import df
-
 matplotlib.use('TkAgg')
 pd.set_option('display.width', None)  # Автоматически подбирает ширину под консоль
+from openpyxl import Workbook, load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.styles import Font
+from openpyxl.drawing.image import Image
+import os
 
 # Основные факторы для расчёта КПД:
 # avg_orders_per_shift  Среднее число заказов за смену  ↑ больше = ↑ эффективность
@@ -17,7 +20,6 @@ pd.set_option('display.width', None)  # Автоматически подбир�
 # avg_time_ratio - среднее факта времени к плану. Не учитывает выбросы
 # pct_timer_up_expired  Процент просроченных доставок  ↓ меньше = ↑ качество
 # stddev_up_ratio , iqr_up_ratio  Мера нестабильности доставок  ↓ меньше = ↑ предсказуемость Не используем !!!!!!!
-print('*' * 200)
 
 # Метрики для оценки КПД
 metrics = [
@@ -65,45 +67,9 @@ df.to_csv('results/courier_score.csv')
 
 
 df = pd.read_csv('results/courier_score.csv')
-# Топ N самых эффективных курьеров
+# # Топ N самых эффективных курьеров
 top_n = 10
 top_couriers = df['courier_score'].sort_values(ascending=False).head(top_n)
-
-plt.figure(figsize=(10, 6))
-top_couriers.plot(kind='bar', color='skyblue')
-plt.title('Топ 10 курьеров по КПД')
-plt.xlabel('ID курьера')
-plt.ylabel('КПД (courier_score)')
-plt.xticks(rotation=45)
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-# Распределение КПД
-plt.figure(figsize=(8, 5))
-plt.hist(df['courier_score'], bins=30, color='teal', edgecolor='black')
-plt.title('Распределение КПД курьеров')
-plt.xlabel('courier_score')
-plt.ylabel('Частота')
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-# Зависимость между заказами в смену и КПД
-plt.figure(figsize=(8, 6))
-plt.scatter(
-    df['avg_orders_per_shift'],
-    df['courier_score'],
-    alpha=0.6,
-    c='green'
-)
-plt.title('Зависимость КПД от среднего числа заказов в смену')
-plt.xlabel('Среднее число заказов в смену')
-plt.ylabel('courier_score')
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
 
 # ГРУППИРОВКА ПО КАТЕГОРИИ ОПЫТА
 
@@ -115,18 +81,8 @@ grouped_by_exp = df_reset.groupby('experience_category', observed=True).agg(
     avg_courier_score=('courier_score', 'mean'),
     courier_count=('id_driver', 'count')
 ).sort_values(by='avg_courier_score', ascending=False).round(2)
-print('Зависимость КПД от опыта', '\n',grouped_by_exp, '\n')
+# print('Зависимость КПД от опыта', '\n',grouped_by_exp, '\n')
 
-# Визуализация зависимости КПД от категории опыта
-plt.figure(figsize=(8, 6))
-plt.plot(grouped_by_exp.index, grouped_by_exp['avg_courier_score'], marker='o', color='darkcyan')
-plt.title('Зависимость КПД от категории опыта')
-plt.xlabel('Категория опыта')
-plt.ylabel('avg_courier_score')
-plt.xticks(rotation=45)
-plt.grid(True)
-plt.tight_layout()
-plt.show()
 
 # вычислить датафрейм и нарисовать гистограмму зависимость КПД от количества смен
 # Восстанавливаем id_driver как столбец для работы
@@ -144,45 +100,6 @@ grouped_by_shifts = df_reset.groupby('shifts_category', observed=True).agg(
     avg_courier_score=('courier_score', 'mean'),
     courier_count=('id_driver', 'count')
 ).round(2)
-print('Зависимость КПД от количества смен','\n',grouped_by_shifts, '\n')
-
-# Построение графика зависимости КПД от количества смен. Гистограмма с двумя осями (КПД + количество курьеров)
-fig, ax1 = plt.subplots(figsize=(10, 6))
-
-# Столбчатая диаграмма — количество курьеров
-ax1.bar(grouped_by_shifts.index.astype(str), grouped_by_shifts['courier_count'],
-        color='skyblue', label='Число курьеров', alpha=0.7)
-
-# Линия — средний КПД
-ax2 = ax1.twinx()
-ax2.plot(grouped_by_shifts.index.astype(str), grouped_by_shifts['avg_courier_score'],
-         color='darkorange', marker='o', linestyle='-', linewidth=2, label='Средний КПД')
-
-# Настройки графика
-ax1.set_title('Зависимость КПД от количества смен', fontsize=14)
-ax1.set_xlabel('Количество смен (интервалы)', fontsize=12)
-ax1.set_ylabel('Число курьеров', fontsize=12, color='skyblue')
-ax2.set_ylabel('Средний КПД', fontsize=12, color='darkorange')
-plt.xticks(rotation=45)
-
-# Легенды
-lines, labels = ax1.get_legend_handles_labels()
-lines2, labels2 = ax2.get_legend_handles_labels()
-ax2.legend(lines + lines2, labels + labels2, loc='upper left')
-
-plt.tight_layout()
-plt.grid(True, axis='x', linestyle='--', alpha=0.5)
-plt.show()
-
-
-# **********************************************************************************************************************
-# Записываем в эксель
-from openpyxl import Workbook, load_workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.styles import Font
-from openpyxl.drawing.image import Image
-import matplotlib.pyplot as plt
-import os
 
 # Сохраняем все графики во временные файлы
 plt.figure(figsize=(10, 6))
@@ -260,16 +177,16 @@ for r in dataframe_to_rows(grouped_by_shifts, index=True, header=True):
 
 # Вставляем графики
 img_top = Image('top_couriers.png')
-ws.add_image(img_top, 'O2')
+ws.add_image(img_top, 'A20')
 
 img_dist = Image('score_distribution.png')
-ws.add_image(img_dist, 'O40')
+ws.add_image(img_dist, 'A60')
 
 img_orders = Image('orders_vs_score.png')
-ws.add_image(img_orders, 'O80')
+ws.add_image(img_orders, 'A100')
 
 img_exp = Image('experience_vs_score.png')
-ws.add_image(img_exp, 'O120')
+ws.add_image(img_exp, 'A140')
 
 # Автонастройка ширины столбцов
 for column in ws.columns:

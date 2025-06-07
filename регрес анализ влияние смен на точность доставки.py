@@ -1,109 +1,148 @@
 import matplotlib
+from openpyxl.workbook import Workbook
+
+matplotlib.use('Agg')  # Отключаем интерактивный режим
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-matplotlib.use('TkAgg')
+from openpyxl import load_workbook
+from openpyxl.drawing.image import Image as XLImage
+from io import BytesIO
+from openpyxl.styles import Font
+from openpyxl.utils.dataframe import dataframe_to_rows
 
+# Инициализация
+output_path = 'results/courier_analysis.xlsx'
+sheet_name = 'опыт_и_пунктуальность'
 
-# Проверим гипотезу - с увеличением опыта курьера (experience_category) улучшается отношение факта к плану.
-# median_time_ratio снижается — курьер прибывает вовремя.
-
-
-# Выбираем данные
+# Загрузка данных
 df_reset = pd.read_csv('results/courier_score.csv').reset_index()
 
-X = df_reset['total_shifts']  # Предиктор (опыт)
-y = df_reset['median_time_ratio']  # Целевая переменная (эффективность)
+# Создаем буферы для графиков
+buf1 = BytesIO()
+buf2 = BytesIO()
 
-# Добавляем константу для intercept
-X = sm.add_constant(X)
-
-# Обучаем модель
-model = sm.OLS(y, X).fit()
-print('C УВЕЛИЧЕНИЕМ ОПЫТА КУРЬЕРА (EXPERIENCE_CATEGORY) УЛУЧШАЕТСЯ ОТНОШЕНИЕ ФАКТА К ПЛАНУ ','\n',model.summary(), '\n')
-
-print(' Вывод:\n' +
-      'С увеличением числа смен (total_shifts) курьеры становятся более пунктуальными (отношение факта к плану '
-      'снижается).\n' +
-      'Эффект маленький, но стабильный и значимый .\n' +
-      'Это может говорить о том, что курьеры учатся на опыте , лучше оценивают время пути, избегают пробок и т.п.\n\n')
-
-# Рисуем график
-# Данные
-x = df_reset['total_shifts']
+# ====================================================================
+# Анализ 1: Влияние опыта на median_time_ratio
+# ====================================================================
+X = df_reset['total_shifts']
 y = df_reset['median_time_ratio']
-# Построение графика
-plt.figure(figsize=(10, 6))
-plt.scatter(x, y, alpha=0.5, color='steelblue', label='Курьеры', s=30)
-# Регрессионная прямая: y = const + coef * x
-const = 0.5729
-coef = -0.0004
-x_line = np.array([x.min(), x.max()])
-y_line = const + coef * x_line
-# Рисуем линию регрессии
-plt.plot(x_line, y_line, color='red', linewidth=2, label='Регрессионная линия')
-# Подписи
-plt.title('Зависимость median_time_ratio от числа смен (total_shifts)')
+X_const = sm.add_constant(X)
+model1 = sm.OLS(y, X_const).fit()
+
+# Создаем выводы для первого анализа
+output1 = [
+    ["АНАЛИЗ: ВЛИЯНИЕ ОПЫТА НА ОТНОШЕНИЕ ФАКТА К ПЛАНУ"],
+    ["Регрессионная модель:", str(model1.summary())],
+    ["Выводы:"],
+    ["1. С увеличением числа смен (total_shifts) курьеры становятся более пунктуальными"],
+    ["2. Эффект статистически значимый (p-value = {:.4f})".format(model1.pvalues['total_shifts'])],
+    ["3. Коэффициент: {:.6f}".format(model1.params['total_shifts'])],
+    ["4. R-squared: {:.4f}".format(model1.rsquared)],
+    ["5. Каждая дополнительная смена снижает median_time_ratio на {:.4f}".format(model1.params['total_shifts'])],
+    [" "],
+    ["Это может говорить о том, что курьеры учатся на опыте, лучше оценивают время пути, избегают пробок и т.п."],
+    [" "]  # Пустая строка перед графиком
+]
+
+# График 1 (уменьшенный размер)
+plt.figure(figsize=(8, 5))
+plt.scatter(X, y, alpha=0.5, color='steelblue', s=30)
+plt.plot(X, model1.predict(X_const), color='red', linewidth=2)
+plt.title('Зависимость median_time_ratio от числа смен')
 plt.xlabel('Число смен (total_shifts)')
 plt.ylabel('median_time_ratio')
-plt.legend()
 plt.grid(True)
 plt.tight_layout()
-# Отображаем
-plt.show()
+plt.savefig(buf1, format='png', dpi=150)
+buf1.seek(0)
+plt.close()
 
-
-# Теперь сделаем анализ влияния количества смен на процент просрочек по времени
-# Убедимся, что индекс не мешает
-
+# ====================================================================
+# Анализ 2: Влияние опыта на процент просрочек
+# ====================================================================
 X = df_reset['total_shifts']
 y = df_reset['pct_timer_up_expired']
-X = sm.add_constant(X)
-model = sm.OLS(y, X).fit()
-print('ВЛИЯНИЯ КОЛИЧЕСТВА СМЕН НА ПРОЦЕНТ ПРОСРОЧЕК ПО ВРЕМЕНИ','\n',model.summary(),'\n'+
+X_const = sm.add_constant(X)
+model2 = sm.OLS(y, X_const).fit()
 
-'1. Коэффициент total_shifts = -0.0133\n'+
-'Это означает, что с каждой дополнительной сменой процент просроченных доставок (pct_timer_up_expired) уменьшается на 0.0133% .\n'+
+# Создаем выводы для второго анализа
+output2 = [
+    ["АНАЛИЗ: ВЛИЯНИЕ ОПЫТА НА ПРОЦЕНТ ПРОСРОЧЕК"],
+    ["Регрессионная модель:", str(model2.summary())],
+    ["Выводы:"],
+    ["1. Коэффициент total_shifts = {:.4f}".format(model2.params['total_shifts'])],
+    ["2. Каждая дополнительная смена уменьшает процент просрочек на {:.4f}%".format(abs(model2.params['total_shifts']))],
+    ["3. P-значение: {:.4f} (статистически значимо)".format(model2.pvalues['total_shifts'])],
+    ["4. Базовый уровень просрочек (0 смен): {:.4f}%".format(model2.params['const'])],
+    [" "],
+    ["Примеры:"],
+    ["На 10-й смене: {:.4f}%".format(model2.params['const'] + model2.params['total_shifts']*10)],
+    ["На 50-й смене: {:.4f}%".format(model2.params['const'] + model2.params['total_shifts']*50)],
+    [" "],
+    ["Общий вывод:"],
+    ["С увеличением опыта курьеры становятся более пунктуальными"],
+    ["Эффект статистически значимый и стабильный"],
+    ["Курьеры учатся лучше планировать время, избегать пробок, выбирать маршруты"],
+    [" "]  # Пустая строка перед графиком
+]
 
-'То есть:\n'+
-'Курьер становится всё более пунктуальным по мере увеличения опыта.\n'
-'Пример:\n'
-'На 10-й смене:\n'
-'pct_timer_up_expired = 4.2158 + (-0.0133 × 10) = 4.0828%\n'
-'На 50-й смене:\n'
-'pct_timer_up_expired = 4.2158 + (-0.0133 × 50) = 3.5498%\n'
-'С каждыми 10 сменами курьер теряет ~0.133% просрочек — заметное улучшение!\n'
-'P-значение = 0.000\n'
-'Это говорит о том, что связь между total_shifts и pct_timer_up_expired — статистически значима .\n'
-'То есть, зависимость реальна , а не случайна.\n'
-'Const = 4.2158\n'
-'Это значение pct_timer_up_expired у курьера с 0 смен.\n'
-'Иными словами — новички в среднем имеют около 4.2% просроченных заказов .\n'
-'Общий вывод:\n'
-'С увеличением количества смен (total_shifts) курьеры становятся более пунктуальными , и процент просроченных заказов снижается линейно .\n'
-'Эффект статистически значимый и довольно стабильный .\n'
-'Это может говорить о том, что курьеры учатся лучше планировать время , избегать пробок, выбирать лучшие маршруты и т.п.\n\n' )
-
-# Визуализация зависимости ВЛИЯНИЯ КОЛИЧЕСТВА СМЕН НА ПРОЦЕНТ ПРОСРОЧЕК ПО ВРЕМЕНИ
-x = df_reset['total_shifts']
-y = df_reset['pct_timer_up_expired']
-# Построение графика
-plt.figure(figsize=(10, 6))
-plt.scatter(x, y, alpha=0.5, color='steelblue', label='Курьеры', s=30)
-# Регрессионная прямая: y = const + coef * x
-const = 4.2158
-coef = -0.0133
-x_line = np.array([x.min(), x.max()])
-y_line = const + coef * x_line
-# Рисуем линию регрессии
-plt.plot(x_line, y_line, color='red', linewidth=2, label='Регрессионная линия')
-# Подписи
-plt.title('Зависимость pct_timer_up_expired от числа смен (total_shifts)')
+# График 2 (уменьшенный размер)
+plt.figure(figsize=(8, 5))
+plt.scatter(X, y, alpha=0.5, color='steelblue', s=30)
+plt.plot(X, model2.predict(X_const), color='red', linewidth=2)
+plt.title('Зависимость pct_timer_up_expired от числа смен')
 plt.xlabel('Число смен (total_shifts)')
-plt.ylabel('pct_timer_up_expired')
-plt.legend()
+plt.ylabel('pct_timer_up_expired (%)')
 plt.grid(True)
 plt.tight_layout()
-# Отображаем
-plt.show()
+plt.savefig(buf2, format='png', dpi=150)
+buf2.seek(0)
+plt.close()
+
+# ====================================================================
+# Сохранение в Excel
+# ====================================================================
+try:
+    wb = load_workbook(output_path)
+except FileNotFoundError:
+    wb = Workbook()
+
+if sheet_name in wb.sheetnames:
+    wb.remove(wb[sheet_name])
+
+ws = wb.create_sheet(sheet_name)
+
+# Записываем первый анализ
+for row in output1:
+    ws.append(row)
+
+# Добавляем первый график на строку 32
+img1 = XLImage(buf1)
+ws.add_image(img1, 'A32')
+
+# Записываем второй анализ
+for row in output2:
+    ws.append(row)
+
+# Добавляем второй график на строку 63
+img2 = XLImage(buf2)
+ws.add_image(img2, 'A66')
+
+# Настройка ширины столбцов
+for col in ws.columns:
+    max_length = 0
+    column = col[0].column_letter
+    for cell in col:
+        try:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        except:
+            pass
+    ws.column_dimensions[column].width = min(max_length + 2, 50)
+
+# Сохраняем файл
+wb.save(output_path)
+
+print("Анализ успешно сохранен в файл '{}' на лист '{}'".format(output_path, sheet_name))
